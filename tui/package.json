@@ -1,0 +1,12 @@
+{
+  "name": "opencode-plugin-recap-tui",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.tsx",
+    "./tui": "./index.tsx"
+  },
+  "dependencies": {
+    "@opencode/plugin": "latest"
+  }
+}

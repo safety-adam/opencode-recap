@@ -1,0 +1,57 @@
+{
+  "name": "opencode-plugin-recap",
+  "version": "0.1.0",
+  "description": "Session recap for OpenCode. Summarises where a session stands using the session's own model.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Adam Farmer",
+  "homepage": "https://github.com/safety-adam/opencode-recap#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/safety-adam/opencode-recap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/safety-adam/opencode-recap/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "recap",
+    "summary",
+    "typescript"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./rpc": "./src/rpc.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@opencode/plugin": "latest"
+  },
+  "devDependencies": {
+    "@opentui/core": "^0.6.6",
+    "@opentui/solid": "^0.6.6",
+    "solid-js": "^1.9.12",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.6.6",
+    "@opentui/solid": ">=0.6.6",
+    "solid-js": ">=1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentui/core": {
+      "optional": true
+    },
+    "@opentui/solid": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    }
+  }
+}
