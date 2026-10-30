@@ -48,8 +48,6 @@ export default Plugin.define({
       const now = Date.now()
       if (now - lastTouch < 1000) return
       lastTouch = now
-      // Typing hides a visible recap as well as restarting the window.
-      clearSession(sessionID)
       void rpc.touch({ sessionID }).catch(() => {})
     }
     context.renderer.keyInput.on("keypress", onKey)
