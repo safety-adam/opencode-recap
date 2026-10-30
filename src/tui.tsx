@@ -18,8 +18,7 @@ export default Plugin.define({
     })
 
     // Sending a message clears the row until the next idle summary arrives.
-    const clear = (event: any) => {
-      const id = event?.data?.sessionID
+    const clearSession = (id: string | undefined) => {
       if (!id) return
       setLines((prev) => {
         if (!(id in prev)) return prev
@@ -27,6 +26,9 @@ export default Plugin.define({
         delete next[id]
         return next
       })
+    }
+    const clear = (event: any) => {
+      clearSession(event?.data?.sessionID)
     }
     const stopEnqueued = context.data.on("session.inbox.enqueued", clear)
     const stopStarted = context.data.on("session.execution.started", clear)
@@ -46,6 +48,8 @@ export default Plugin.define({
       const now = Date.now()
       if (now - lastTouch < 1000) return
       lastTouch = now
+      // Typing hides a visible recap as well as restarting the window.
+      clearSession(sessionID)
       void rpc.touch({ sessionID }).catch(() => {})
     }
     context.renderer.keyInput.on("keypress", onKey)
