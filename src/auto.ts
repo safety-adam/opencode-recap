@@ -1,7 +1,7 @@
-// Watches the event stream. When a session goes idle, waits out a debounce
+// Watches the event stream. When a session goes quiet, waits out a debounce
 // window and asks the model for a one line summary of what the session is
-// doing. The line is stored and handed to the caller so the TUI can show it
-// above the input.
+// doing. Typing in the prompt restarts the window through touch. The line is
+// stored and handed to the caller so the TUI can show it above the input.
 
 import { generateLine } from "./recap"
 
@@ -10,8 +10,17 @@ export interface AutoOptions {
   onLine: (sessionID: string, line: string) => Promise<void> | void
 }
 
+export interface AutoHandle {
+  dispose(): void
+  touch(sessionID: string): void
+}
+
 export function lineKey(sessionID: string): string {
   return `line/${sessionID}`
+}
+
+function activityKey(sessionID: string): string {
+  return `activity/${sessionID}`
 }
 
 // Elect a single winner across plugin instances. Every instance writes its
@@ -23,6 +32,17 @@ export async function claim(ctx: any, purpose: string, sessionID: string): Promi
   await new Promise((resolve) => setTimeout(resolve, 250))
   const current = (await ctx.storage.get(key)) as { token?: string } | undefined
   return current?.token === token
+}
+
+// Shared by every plugin instance, so a keystroke seen by the TUI instance in
+// front of the user restarts the window for all of them.
+async function markActivity(ctx: any, sessionID: string): Promise<void> {
+  await ctx.storage.set(activityKey(sessionID), Date.now())
+}
+
+async function lastActivity(ctx: any, sessionID: string): Promise<number> {
+  const at = (await ctx.storage.get(activityKey(sessionID))) as number | undefined
+  return typeof at === "number" ? at : 0
 }
 
 function eventSessionID(event: any): string | undefined {
@@ -84,24 +104,42 @@ export async function summarizeSession(
   }
 }
 
-export async function startAutoRecap(ctx: any, options: AutoOptions): Promise<() => void> {
+export async function startAutoRecap(ctx: any, options: AutoOptions): Promise<AutoHandle> {
   const controller = new AbortController()
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
+  const windowMs = () => options.idleSeconds * 1000
 
-  function summarize(sessionID: string) {
-    return summarizeSession(ctx, sessionID, options.onLine)
+  function clearTimer(sessionID: string) {
+    const timer = timers.get(sessionID)
+    if (timer) {
+      clearTimeout(timer)
+      timers.delete(sessionID)
+    }
   }
 
-  function schedule(sessionID: string) {
-    const existing = timers.get(sessionID)
-    if (existing) clearTimeout(existing)
+  async function fire(sessionID: string) {
+    timers.delete(sessionID)
+    const elapsed = Date.now() - (await lastActivity(ctx, sessionID))
+    if (elapsed < windowMs()) {
+      schedule(sessionID, windowMs() - elapsed)
+      return
+    }
+    await summarizeSession(ctx, sessionID, options.onLine)
+  }
+
+  function schedule(sessionID: string, delay = windowMs()) {
+    clearTimer(sessionID)
     timers.set(
       sessionID,
       setTimeout(() => {
-        timers.delete(sessionID)
-        void summarize(sessionID)
-      }, options.idleSeconds * 1000),
+        void fire(sessionID)
+      }, Math.max(delay, 0)),
     )
+  }
+
+  function touch(sessionID: string) {
+    void markActivity(ctx, sessionID)
+    schedule(sessionID)
   }
 
   void (async () => {
@@ -111,23 +149,24 @@ export async function startAutoRecap(ctx: any, options: AutoOptions): Promise<()
         if (!sessionID) continue
         const kind = eventKind(event)
         if (kind === "idle") {
+          await markActivity(ctx, sessionID)
           schedule(sessionID)
         } else if (kind === "activity") {
-          const timer = timers.get(sessionID)
-          if (timer) {
-            clearTimeout(timer)
-            timers.delete(sessionID)
-          }
+          await markActivity(ctx, sessionID)
+          clearTimer(sessionID)
         }
       }
     } catch {
-      // Stream aborted during unload or lost. Timers are cleared by cleanup.
+      // Stream aborted during unload or lost. Timers are cleared on dispose.
     }
   })()
 
-  return () => {
-    controller.abort()
-    for (const timer of timers.values()) clearTimeout(timer)
-    timers.clear()
+  return {
+    dispose() {
+      controller.abort()
+      for (const timer of timers.values()) clearTimeout(timer)
+      timers.clear()
+    },
+    touch,
   }
 }

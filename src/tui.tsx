@@ -8,6 +8,7 @@ export default Plugin.define({
   async setup(context) {
     const rpc = (context.client as any).rpc(Recap)
     const [lines, setLines] = createSignal<Record<string, string>>({})
+    const [activeSession, setActiveSession] = createSignal<string | undefined>()
     const fetched = new Set<string>()
 
     const unsubscribe = rpc.events.on("updated", (event: any) => {
@@ -30,10 +31,32 @@ export default Plugin.define({
     const stopEnqueued = context.data.on("session.inbox.enqueued", clear)
     const stopStarted = context.data.on("session.execution.started", clear)
 
+    // Every character typed in the prompt restarts the server's idle window.
+    // Throttled to one call a second; the server only stores a timestamp.
+    let lastTouch = 0
+    const onKey = (key: any) => {
+      const sessionID = activeSession()
+      if (!sessionID) return
+      if (key?.ctrl || key?.meta || key?.super) return
+      if (key?.eventType === "release") return
+      const printable =
+        (typeof key?.sequence === "string" && key.sequence.length === 1 && key.sequence >= " ") ||
+        key?.name === "space"
+      if (!printable) return
+      const now = Date.now()
+      if (now - lastTouch < 1000) return
+      lastTouch = now
+      void rpc.touch({ sessionID }).catch(() => {})
+    }
+    context.renderer.keyInput.on("keypress", onKey)
+
     context.ui.slot({
       append: "session.composer.top",
       render: (input: any) => {
         const sessionID = () => input?.sessionID as string | undefined
+        createEffect(() => {
+          setActiveSession(sessionID())
+        })
         createEffect(() => {
           const id = sessionID()
           if (!id || fetched.has(id)) return
@@ -101,6 +124,7 @@ export default Plugin.define({
     })
 
     return () => {
+      context.renderer.keyInput.off("keypress", onKey)
       unsubscribe()
       stopEnqueued()
       stopStarted()

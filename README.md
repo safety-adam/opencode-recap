@@ -33,8 +33,8 @@ The row is a TUI plugin and loads from `cli.json`, so add it there too, after an
 
 ## What it does
 
-1. Watches for the session going idle.
-2. After 30 seconds of quiet, reads the last few messages and asks the model for a one line summary of the current activity.
+1. Watches for the session going quiet.
+2. After 60 seconds with no activity, reads the last few messages and asks the model for a one line summary of the current activity. Typing in the prompt restarts the 60 second window.
 3. Shows the line as a single row directly above the input, below any plugin listed before it in `cli.json`. No command needed.
 
 The line updates after each idle period. It is stored per session and shown again when you reopen the session.
@@ -48,7 +48,7 @@ The line updates after each idle period. It is stored per session and shown agai
       "package": "opencode-plugin-recap",
       "options": {
         "auto": true,
-        "idleSeconds": 30
+        "idleSeconds": 60
       }
     }
   ]
@@ -58,7 +58,7 @@ The line updates after each idle period. It is stored per session and shown agai
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `auto` | `true` | Regenerate the line after idle periods |
-| `idleSeconds` | `30` | Quiet time before the summary runs |
+| `idleSeconds` | `60` | Quiet time before the summary runs |
 
 ## The /recap command
 

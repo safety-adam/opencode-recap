@@ -130,10 +130,25 @@ export async function generateLine(ctx: any, sessionID: string): Promise<string 
     model: { providerID: model.providerID, id: model.id },
     prompt: LINE_PROMPT + digest,
   })
-  let line = String(result?.text ?? result?.data?.text ?? "")
+  const raw = String(result?.text ?? result?.data?.text ?? "")
     .replace(/\s+/g, " ")
     .trim()
-  if (!line || line === "EMPTY") return null
+  let line: string | null = raw && raw !== "EMPTY" ? raw : fallbackLine(messages)
+  if (!line) return null
   if (line.length > 140) line = line.slice(0, 137) + "..."
   return line
+}
+
+// The model answers EMPTY for trivial sessions. Use the last request as the
+// line instead so the row is never blank while a session has content.
+function fallbackLine(messages: readonly any[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (message?.type !== "user") continue
+    const text = String(message.text ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+    if (text) return `Working on ${text}`
+  }
+  return null
 }

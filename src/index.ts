@@ -1,6 +1,6 @@
 import { Plugin } from "@opencode/plugin"
 import { generateRecap } from "./recap"
-import { claim, lineKey, startAutoRecap, summarizeSession } from "./auto"
+import { claim, lineKey, startAutoRecap, summarizeSession, type AutoHandle } from "./auto"
 import { Recap } from "./rpc"
 
 interface Options {
@@ -11,7 +11,7 @@ interface Options {
 function readOptions(raw: any): Options {
   return {
     auto: raw?.auto !== false,
-    idleSeconds: typeof raw?.idleSeconds === "number" && raw.idleSeconds > 0 ? raw.idleSeconds : 30,
+    idleSeconds: typeof raw?.idleSeconds === "number" && raw.idleSeconds > 0 ? raw.idleSeconds : 60,
   }
 }
 
@@ -19,6 +19,7 @@ export default Plugin.define({
   id: "recap",
   async setup(ctx) {
     const options = readOptions(ctx.options)
+    let auto: AutoHandle | undefined
 
     const registration = await ctx.rpc.register(Recap, {
       current: async (input: unknown) => {
@@ -32,6 +33,11 @@ export default Plugin.define({
           await registration.events.emit("updated", { sessionID: id, line: text })
         })
         return { line: line ?? "" }
+      },
+      touch: async (input: unknown) => {
+        const { sessionID } = input as { sessionID: string }
+        auto?.touch(sessionID)
+        return { ok: true }
       },
     })
 
@@ -60,11 +66,12 @@ export default Plugin.define({
     })
 
     if (!options.auto) return
-    return await startAutoRecap(ctx, {
+    auto = await startAutoRecap(ctx, {
       idleSeconds: options.idleSeconds,
       onLine: async (sessionID, line) => {
         await registration.events.emit("updated", { sessionID, line })
       },
     })
+    return auto.dispose
   },
 })

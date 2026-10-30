@@ -32,6 +32,20 @@ export const Recap = Rpc.define({
         additionalProperties: false,
       },
     },
+    touch: {
+      input: {
+        type: "object",
+        properties: { sessionID: { type: "string" } },
+        required: ["sessionID"],
+        additionalProperties: false,
+      },
+      output: {
+        type: "object",
+        properties: { ok: { type: "boolean" } },
+        required: ["ok"],
+        additionalProperties: false,
+      },
+    },
   },
   events: {
     updated: {
